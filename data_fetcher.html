@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>台股資料下載</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Microsoft JhengHei','Segoe UI',sans-serif;background:#0f1117;color:#e6edf3;font-size:15px;}
+.wrap{max-width:660px;margin:0 auto;padding:28px 18px;}
+.hidden{display:none!important;}
+
+h1{font-size:22px;font-weight:700;text-align:center;margin-bottom:6px;}
+.sub{text-align:center;color:#8b949e;font-size:13px;margin-bottom:28px;}
+
+.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:22px;margin-bottom:14px;}
+.label{font-size:12px;color:#8b949e;margin-bottom:6px;display:block;}
+
+/* 年份輸入 */
+.yr-wrap{display:flex;align-items:flex-end;gap:12px;justify-content:center;margin-bottom:12px;}
+.yr-box{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.yr-box input{width:100px;padding:10px;font-size:22px;font-weight:800;text-align:center;
+  background:#1c2128;border:2px solid #30363d;border-radius:8px;color:#e6edf3;outline:none;}
+.yr-box input:focus{border-color:#3b82f6;}
+.yr-sep{font-size:20px;color:#484f58;padding-bottom:6px;}
+
+/* Token 輸入 */
+.token-row{display:flex;align-items:center;gap:8px;}
+.token-row input{flex:1;padding:8px 12px;font-size:13px;background:#1c2128;
+  border:1.5px solid #30363d;border-radius:6px;color:#e6edf3;outline:none;}
+.token-row input:focus{border-color:#3b82f6;}
+.token-link{font-size:12px;color:#3b82f6;text-decoration:none;}
+.token-link:hover{text-decoration:underline;}
+
+.hint{font-size:12px;color:#484f58;margin-top:8px;line-height:1.7;}
+.hint b{color:#f59e0b;}
+
+/* 按鈕 */
+.go-btn{display:block;width:100%;padding:14px;font-size:17px;font-weight:700;
+  background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:16px;}
+.go-btn:hover{background:#2563eb;}
+.go-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* 錯誤 */
+.err{background:#2d1020;border:1px solid #f43f5e;border-radius:8px;
+     padding:10px 14px;font-size:13px;color:#fca5a5;line-height:1.8;
+     margin-bottom:12px;display:none;}
+
+/* 進度 */
+.big-pct{font-size:62px;font-weight:800;color:#3b82f6;text-align:center;line-height:1;margin-bottom:8px;}
+.pct-lbl{text-align:center;font-size:14px;color:#8b949e;margin-bottom:16px;}
+.bar-bg{height:12px;background:#1c2128;border-radius:99px;overflow:hidden;margin-bottom:8px;}
+.bar-fill{height:100%;background:linear-gradient(90deg,#3b82f6,#10b981);
+          border-radius:99px;transition:width .4s;width:0%;}
+.eta{text-align:center;font-size:12px;color:#484f58;margin-bottom:16px;}
+
+/* 月份進度列表 */
+.mo-title{font-size:12px;font-weight:600;color:#484f58;letter-spacing:.05em;
+          text-transform:uppercase;margin-bottom:8px;}
+.mo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.mo-cell{text-align:center;padding:5px 4px;border-radius:5px;font-size:11px;font-weight:600;}
+.mo-wait{background:#1c2128;color:#484f58;}
+.mo-now {background:#1d2d50;color:#3b82f6;}
+.mo-ok  {background:#0d2b20;color:#10b981;}
+.mo-err {background:#2d1020;color:#f43f5e;}
+
+/* 預覽 */
+.preview-title{font-size:12px;color:#484f58;margin-bottom:8px;}
+.ptbl{width:100%;border-collapse:collapse;font-size:11px;}
+.ptbl th{background:#1c2128;color:#484f58;padding:4px 7px;text-align:left;border-bottom:1px solid #30363d;}
+.ptbl td{padding:4px 7px;border-bottom:1px solid #21262d;color:#c9d1d9;}
+.ptbl tr:last-child td{border-bottom:none;}
+.ok{color:#10b981;font-weight:700;}
+
+.stop-btn{display:block;margin:14px auto 0;padding:8px 24px;font-size:13px;
+  background:transparent;color:#f43f5e;border:1.5px solid #f43f5e;border-radius:7px;cursor:pointer;}
+
+/* 完成 */
+.done-center{text-align:center;padding:24px 0 16px;}
+.done-center .icon{font-size:48px;margin-bottom:8px;}
+.done-center h2{font-size:21px;font-weight:700;margin-bottom:4px;}
+.done-center p{color:#8b949e;font-size:13px;}
+.stats-row{display:flex;gap:8px;justify-content:center;margin:14px 0 20px;flex-wrap:wrap;}
+.stat{background:#161b22;border:1px solid #30363d;border-radius:7px;
+      padding:10px 14px;text-align:center;min-width:75px;flex:1;}
+.stat-n{font-size:20px;font-weight:700;color:#3b82f6;}
+.stat-l{font-size:11px;color:#484f58;margin-top:2px;}
+
+.dl-label{font-size:14px;font-weight:700;margin-bottom:4px;}
+.dl-desc{font-size:12px;color:#484f58;margin-bottom:12px;}
+.yr-btns{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px;}
+.btn-yr{padding:6px 14px;font-size:12px;font-weight:700;
+  background:#0d2b20;color:#10b981;border:1.5px solid #10b981;border-radius:5px;cursor:pointer;}
+.btn-yr:hover{background:#10b981;color:#fff;}
+.btn-all{padding:9px 18px;font-size:13px;font-weight:600;
+  background:#2d2010;color:#f59e0b;border:1.5px solid #f59e0b;border-radius:6px;cursor:pointer;}
+.btn-all:hover{background:#f59e0b;color:#0f1117;}
+.btn-json{display:block;width:100%;padding:11px;font-size:14px;font-weight:700;text-align:center;
+  background:#1d2d50;color:#3b82f6;border:1.5px solid #3b82f6;border-radius:7px;cursor:pointer;margin-top:0;}
+.btn-json:hover{background:#3b82f6;color:#fff;}
+.note{background:#1c2128;border-radius:6px;padding:9px 12px;font-size:11px;
+      color:#6e7681;line-height:1.8;margin-top:8px;}
+.note code{color:#58a6ff;background:#0d1117;padding:1px 4px;border-radius:3px;}
+.back-btn{display:block;width:100%;padding:10px;font-size:13px;background:transparent;
+  color:#484f58;border:1px solid #30363d;border-radius:7px;cursor:pointer;margin-top:8px;}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════
+     頁面一：設定
+     ════════════════════════════════ -->
+<div id="p1" class="wrap">
+  <div style="text-align:center;font-size:40px;margin-bottom:10px;">📊</div>
+  <h1>台股每日資料下載</h1>
+  <div class="sub">使用 FinMind Trade API · 全市場所有股票 · 每日收盤資料</div>
+
+  <!-- 年份 -->
+  <div class="card">
+    <span class="label">📅 選擇年份範圍（最早 2010 年）</span>
+    <div class="yr-wrap">
+      <div class="yr-box">
+        <span style="font-size:12px;color:#8b949e;">從</span>
+        <input type="number" id="sy" value="2020" min="2010" max="2030">
+      </div>
+      <div class="yr-sep">→</div>
+      <div class="yr-box">
+        <span style="font-size:12px;color:#8b949e;">到</span>
+        <input type="number" id="ey" value="" min="2010" max="2030">
+      </div>
+    </div>
+    <div class="hint">FinMind 資料最早 <b>2010 年</b>左右，實際以 API 回傳為準</div>
+  </div>
+
+  <!-- FinMind Token -->
+  <div class="card">
+    <span class="label">🔑 FinMind API Token（選填，免費申請可大幅提升下載速度）</span>
+    <div class="token-row">
+      <input type="text" id="token" placeholder="貼上 Token（沒有也可以直接下載，速度較慢）">
+    </div>
+    <div class="hint">
+      沒有 Token 也能下載，但每天有 600 次請求限制。<br>
+      免費申請：<a class="token-link" href="https://finmindtrade.com/" target="_blank">finmindtrade.com</a>
+      → 註冊 → 個人設定 → 複製 Token
+    </div>
+  </div>
+
+  <div class="err" id="err1"></div>
+  <button class="go-btn" id="goBtn" onclick="go()">▶ 開始下載</button>
+</div>
+
+<!-- ════════════════════════════════
+     頁面二：進度
+     ════════════════════════════════ -->
+<div id="p2" class="wrap hidden">
+  <div class="card" style="text-align:center;padding:24px 22px;">
+    <div class="big-pct" id="pct">0%</div>
+    <div class="pct-lbl"  id="lbl">初始化中...</div>
+    <div class="bar-bg"><div class="bar-fill" id="bar"></div></div>
+    <div class="eta" id="eta">&nbsp;</div>
+  </div>
+
+  <div class="err" id="err2"></div>
+
+  <div class="card" id="moCard">
+    <div class="mo-title" id="moTitle">月份進度</div>
+    <div class="mo-grid" id="moGrid"></div>
+  </div>
+
+  <div class="card">
+    <div class="preview-title">✅ 資料樣本（確認收盤價正確）</div>
+    <div id="prev"><p style="color:#484f58;font-size:12px">等待第一筆...</p></div>
+  </div>
+
+  <button class="stop-btn" onclick="stop()">■ 停止</button>
+</div>
+
+<!-- ════════════════════════════════
+     頁面三：完成
+     ════════════════════════════════ -->
+<div id="p3" class="wrap hidden">
+  <div class="done-center">
+    <div class="icon">✅</div>
+    <h2>下載完成！</h2>
+    <p id="doneSub"></p>
+  </div>
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="card">
+    <div class="dl-label">📄 下載 Excel 檔（每年一個）</div>
+    <div class="dl-desc">可用 Excel 或 Google 試算表開啟確認資料</div>
+    <div class="yr-btns" id="yrBtns"></div>
+    <button class="btn-all" onclick="dlAll()">⬇ 一次下載全部</button>
+  </div>
+
+  <div class="card">
+    <div class="dl-label">🔗 下載 JSON（供分析網頁使用）</div>
+    <div class="dl-desc">包含 117 支精選股票，存到 data/ 資料夾即可</div>
+    <button class="btn-json" onclick="dlJson()">⬇ 下載 market_data.json</button>
+    <div class="note">儲存路徑：<code>d:\Nick Ai Agent\Stock_Analysis\data\market_data.json</code></div>
+  </div>
+
+  <button class="back-btn" onclick="back()">↺ 重新設定</button>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// 117 精選股票（用於 JSON 匯出）
+// ─────────────────────────────────────────────────────────────────────────────
+const FIN = new Set(["2330","3008","2395","6719","3443","3661","8299","3034","2454","2379",
+  "5269","6415","4966","3227","6462","5274","3530","4919","2337","2344","3035","3515","3005",
+  "6277","3706","6285","2382","2356","2317","2303","2408","2376","2049","1590","8069","2308",
+  "9921","9914","1476","2059","6488","3711","1560","2360","3665","3017","3324","6669","2474",
+  "4938","9904","1477","3533","3037","5222","2345","2231","2015","2002","1101","1102","2105",
+  "1504","2912","2412","5903","4904","3045","2207","1216","1210","1227","1234","2727","2729",
+  "2753","2882","2881","2886","2884","2891","2880","2892","2885","5880","5876","2801","2809",
+  "1301","1303","1326","6505","1723","6274","1717","1711","1712","1722","6121","1707","4106",
+  "1786","4162","4126","4107","4163","1762","4142","1795","6803","2630","2618","2610","2634",
+  "3010","3702","2603"]);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 全域狀態
+// ─────────────────────────────────────────────────────────────────────────────
+let blobs    = {};   // {year: BlobURL}
+let finData  = {};   // {date: {code: {p,y,pe,pbr}}} for JSON export
+let preview  = [];   // latest 5 rows for display
+let totals   = {yr:0, days:0, rows:0, stocks:0};
+let doStop   = false;
+let t0       = 0;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 工具
+// ─────────────────────────────────────────────────────────────────────────────
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const pad   = n  => String(n).padStart(2,'0');
+
+function monthEnd(yr, mo) {
+  return new Date(yr, mo, 0).getDate(); // 該月最後一天
+}
+
+function fmtDate(s) {
+  // "2024-03-05" → "2024/03/05"
+  return s.replace(/-/g, '/');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FinMind Trade API
+// 官網：https://finmindtrade.com
+// CORS：原生支援，可直接從瀏覽器呼叫
+// ─────────────────────────────────────────────────────────────────────────────
+const FM = 'https://api.finmindtrade.com/api/v4/data';
+
+async function finmindGet(dataset, yr, mo, token) {
+  const start = `${yr}-${pad(mo)}-01`;
+  const end   = `${yr}-${pad(mo)}-${pad(monthEnd(yr, mo))}`;
+  let url = `${FM}?dataset=${dataset}&start_date=${start}&end_date=${end}`;
+  if (token) url += `&token=${encodeURIComponent(token)}`;
+
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const j = await r.json();
+    // FinMind 成功回應：status 200, data 陣列
+    if (j.status === 200 && Array.isArray(j.data)) return j.data;
+    // 可能的錯誤狀態
+    if (j.status === 402) throw new Error('Token 已達使用上限，請稍後重試或申請新 Token');
+    if (j.status === 403) throw new Error('Token 無效，請確認 Token 正確');
+    return [];
+  } catch(e) {
+    if (e.message.includes('Token')) throw e;
+    return []; // 網路錯誤或空資料，靜默跳過
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 主流程
+// ─────────────────────────────────────────────────────────────────────────────
+async function go() {
+  const sy    = parseInt(document.getElementById('sy').value);
+  const ey    = parseInt(document.getElementById('ey').value);
+  const token = document.getElementById('token').value.trim();
+
+  // 驗證
+  const errEl = document.getElementById('err1');
+  errEl.style.display = 'none';
+  if (isNaN(sy) || sy < 2010) { showErr('err1','起始年份最早為 2010 年'); return; }
+  if (isNaN(ey) || ey > new Date().getFullYear()) { showErr('err1','結束年份不能超過今年'); return; }
+  if (sy > ey) { showErr('err1','起始年份不能大於結束年份'); return; }
+
+  // 初始化
+  blobs={}; finData={}; preview=[]; doStop=false;
+  totals={yr:0,days:0,rows:0,stocks:0}; t0=Date.now();
+  document.getElementById('goBtn').disabled = true;
+  showPage(2);
+
+  // 建立月份格子（視覺化）
+  buildMonthGrid(sy, ey);
+
+  // 計算總月數（用於進度）
+  const totalMo = (ey - sy + 1) * 12;
+  let doneMo = 0;
+
+  for (let yr = sy; yr <= ey && !doStop; yr++) {
+    const yearRows = []; // [[date,code,name,price,yld,pe,pbr], ...]
+    const daySet   = new Set();
+
+    for (let mo = 1; mo <= 12 && !doStop; mo++) {
+      setMo(yr, mo, 'now');
+      setBar(
+        Math.round(doneMo / totalMo * 100),
+        `正在下載 ${yr} 年 ${mo} 月…`,
+        calcEta(doneMo, totalMo)
+      );
+
+      try {
+        // 同時抓兩個 FinMind 資料集
+        const [prices, pers] = await Promise.all([
+          finmindGet('TaiwanStockPrice', yr, mo, token),
+          finmindGet('TaiwanStockPER',   yr, mo, token),
+        ]);
+
+        // 建立 PER 查詢表：key = "date_stockId"
+        const perMap = {};
+        for (const r of pers) {
+          perMap[`${r.date}_${r.stock_id}`] = {
+            y:   parseFloat(r.dividend_yield) || 0,
+            pe:  parseFloat(r.PER)            || 0,
+            pbr: parseFloat(r.PBR)            || 0,
+          };
+        }
+
+        // 合併收盤價 + 財務比率
+        for (const r of prices) {
+          const price = parseFloat(r.close) || 0;
+          if (price <= 0 || price > 999999) continue;
+          if (!/^\d{4,6}$/.test(r.stock_id)) continue; // 純數字代號
+
+          const bw  = perMap[`${r.date}_${r.stock_id}`] || {};
+          const row = [
+            fmtDate(r.date),   // 日期
+            r.stock_id,         // 代號
+            '',                 // 名稱（FinMind TaiwanStockPrice 不包含名稱）
+            price,              // 收盤價
+            bw.y   || 0,        // 殖利率(%)
+            bw.pe  || 0,        // 本益比
+            bw.pbr || 0,        // 股價淨值比
+          ];
+          yearRows.push(row);
+          daySet.add(r.date);
+
+          // 存精選股票 → JSON 匯出
+          if (FIN.has(r.stock_id)) {
+            const d = fmtDate(r.date);
+            if (!finData[d]) finData[d] = {};
+            finData[d][r.stock_id] = {p:price, y:bw.y||0, pe:bw.pe||0, pbr:bw.pbr||0};
+          }
+
+          // 預覽（只取前 5 筆已有合理殖利率的，方便確認）
+          if (preview.length < 5 || (bw.y > 0 && preview.length < 5)) {
+            preview.unshift(row);
+            if (preview.length > 5) preview.pop();
+          }
+        }
+
+        updPreview();
+        setMo(yr, mo, prices.length > 0 ? 'ok' : 'err');
+
+      } catch(e) {
+        // Token 錯誤直接中止
+        showErr('err2', e.message);
+        doStop = true;
+        break;
+      }
+
+      doneMo++;
+      await sleep(600); // FinMind free tier：避免太快被限速
+    }
+
+    // 年份完成 → 生成 Excel blob，釋放記憶體
+    if (yearRows.length) {
+      blobs[yr] = URL.createObjectURL(makeBlob(yr, yearRows));
+      const sc  = new Set(yearRows.map(r => r[1])).size;
+      totals.yr++;
+      totals.days   += daySet.size;
+      totals.rows   += yearRows.length;
+      totals.stocks  = Math.max(totals.stocks, sc);
+    }
+    // yearRows 離開 for 作用域自動 GC，不需手動清
+  }
+
+  document.getElementById('goBtn').disabled = false;
+  if (Object.keys(blobs).length) showDone(sy, ey);
+}
+
+function stop() { doStop = true; }
+
+function calcEta(done, total) {
+  if (done < 1) return '';
+  const sec = (Date.now() - t0) / 1000;
+  const rem = Math.round((total - done) / (done / sec));
+  return rem > 60 ? `預估剩餘 約 ${Math.round(rem/60)} 分鐘` : `預估剩餘 約 ${rem} 秒`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Excel 輸出
+// ─────────────────────────────────────────────────────────────────────────────
+const COLS = ['日期','代號','名稱','收盤價','殖利率(%)','本益比','股價淨值比'];
+
+function makeBlob(yr, rows) {
+  const objs = rows.map(r => ({
+    '日期':r[0], '代號':r[1], '名稱':r[2], '收盤價':r[3],
+    '殖利率(%)':r[4], '本益比':r[5], '股價淨值比':r[6]
+  }));
+  const ws = XLSX.utils.json_to_sheet(objs, {header: COLS});
+  ws['!cols'] = [{wch:12},{wch:7},{wch:10},{wch:9},{wch:11},{wch:8},{wch:10}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, String(yr));
+  return new Blob(
+    [XLSX.write(wb, {type:'array', bookType:'xlsx'})],
+    {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+  );
+}
+
+function dlBlob(yr) {
+  const a = document.createElement('a');
+  a.href = blobs[yr]; a.download = `market_${yr}.xlsx`; a.click();
+}
+
+function dlAll() {
+  Object.keys(blobs).sort().forEach((yr, i) => setTimeout(() => dlBlob(yr), i * 800));
+}
+
+function dlJson() {
+  const out = {
+    version:   1,
+    generated: new Date().toISOString().slice(0,10),
+    note:      '117支精選股票(FIN_ROWS)每日資料',
+    byDate:    finData,
+  };
+  const blob = new Blob([JSON.stringify(out)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'market_data.json'; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI 輔助
+// ─────────────────────────────────────────────────────────────────────────────
+function showPage(n) {
+  ['p1','p2','p3'].forEach((id,i) =>
+    document.getElementById(id).classList.toggle('hidden', i+1 !== n)
+  );
+  window.scrollTo(0,0);
+}
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.innerHTML = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+function setBar(pct, lbl, eta) {
+  document.getElementById('pct').textContent = pct + '%';
+  document.getElementById('lbl').textContent = lbl;
+  document.getElementById('bar').style.width = pct + '%';
+  document.getElementById('eta').textContent = eta;
+}
+
+function buildMonthGrid(sy, ey) {
+  const MOS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let html = '';
+  for (let yr = sy; yr <= ey; yr++) {
+    html += `<div style="margin-bottom:10px;">`;
+    html += `<div style="font-size:11px;color:#8b949e;margin-bottom:4px;">${yr}</div>`;
+    html += `<div class="mo-grid">`;
+    for (let mo = 1; mo <= 12; mo++) {
+      html += `<div class="mo-cell mo-wait" id="m${yr}_${mo}">${MOS[mo-1]}</div>`;
+    }
+    html += `</div></div>`;
+  }
+  document.getElementById('moGrid').innerHTML = html;
+  document.getElementById('moTitle').textContent = `${sy}–${ey} 月份進度`;
+  // Remove the static mo-grid class from container
+  document.getElementById('moGrid').style.display = 'block';
+}
+
+function setMo(yr, mo, st) {
+  const el = document.getElementById(`m${yr}_${mo}`);
+  if (el) el.className = `mo-cell mo-${st}`;
+}
+
+function updPreview() {
+  if (!preview.length) return;
+  document.getElementById('prev').innerHTML =
+    `<table class="ptbl"><tr>
+      <th>日期</th><th>代號</th><th>收盤價</th><th>殖利率%</th><th>本益比</th><th>淨值比</th>
+    </tr>` +
+    preview.map(r =>
+      `<tr><td>${r[0]}</td><td>${r[1]}</td>
+       <td class="${r[3]>0?'ok':''}">${r[3]}</td>
+       <td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td></tr>`
+    ).join('') +
+    `</table>`;
+}
+
+function showDone(sy, ey) {
+  showPage(3);
+  document.getElementById('doneSub').textContent = `${sy} 年 → ${ey} 年`;
+  document.getElementById('statsRow').innerHTML =
+    [['年份', totals.yr], ['交易日', totals.days.toLocaleString()],
+     ['資料筆數', (totals.rows/10000).toFixed(1)+'萬'], ['股票支數', totals.stocks.toLocaleString()]]
+    .map(([l,n]) => `<div class="stat"><div class="stat-n">${n}</div><div class="stat-l">${l}</div></div>`)
+    .join('');
+  document.getElementById('yrBtns').innerHTML =
+    Object.keys(blobs).sort()
+      .map(yr => `<button class="btn-yr" onclick="dlBlob(${yr})">⬇ ${yr}.xlsx</button>`)
+      .join('');
+}
+
+function back() {
+  Object.values(blobs).forEach(u => URL.revokeObjectURL(u));
+  blobs = {}; finData = {}; preview = [];
+  document.getElementById('err2').style.display = 'none';
+  document.getElementById('goBtn').disabled = false;
+  showPage(1);
+}
+
+// 初始化
+document.getElementById('ey').value = new Date().getFullYear();
+</script>
+</body>
+</html>
